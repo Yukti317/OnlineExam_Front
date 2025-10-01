@@ -17,8 +17,17 @@ const examSlice = createSlice({
       state.quelen = 0;
       state.anslen = 0;
     },
+    setExamduration: (state, action) => {
+      state.duration = action.payload.duration
+    },
+    restExamduration: (state) => {
+      state.duration = 0;
+    },
+    setUserId: (state, action) => {
+      state.user = action.payload.user
+    }
   },
 });
 
-export const { setExamResult, resetExamResult } = examSlice.actions;
+export const { setExamResult, resetExamResult, setExamduration, setUserId } = examSlice.actions;
 export default examSlice.reducer;

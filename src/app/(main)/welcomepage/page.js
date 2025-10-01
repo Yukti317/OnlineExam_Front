@@ -3,12 +3,14 @@
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { readData } from '@/helper/axios'
 import { useFormik } from 'formik'
 import { useRouter } from 'next/navigation'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import * as yup from 'yup';
 function Welecomepage() {
   const navigate = useRouter();
+  const [data, setData] = useState()
   const [initialValues] = useState({
     languagetype: "",
   })
@@ -21,12 +23,21 @@ function Welecomepage() {
     initialValues: initialValues,
     validationSchema: validation,
     enableReinitialize: true,
-    onSubmit: async (values) => {
-      console.log("values", values)
-      navigate.push('/welcomepage')
-    }
   });
-  console.log("formikkk", formik.values)
+
+
+  // const GetAllExam = async () => {
+  //   const res = await readData('/exam/getAllExam', {
+  //     header: {
+  //       "Content-Type": "application/json",
+  //     },
+  //   });
+  //   if (res.message === 'Exam details') {
+
+  //       setData(res.data)
+  //   }
+  // }
+
   return (
     <div>
       <h1 className='text-center w-[80%] text-3xl card_title'>Welcome to C-DAC Online Exam Portal</h1>
@@ -68,15 +79,15 @@ function Welecomepage() {
             value={formik.values.languagetype} className="flex justify-center w-full">
             <div className="flex items-center space-x-2">
               <Label htmlFor="english" className="text-amber-600 font-bold">English</Label>
-              <RadioGroupItem  value="english" id="english" name="languagetype" className="cursor-pointer border-[#cd5700] border-2 p-2 bg-[#fad646] " />
+              <RadioGroupItem value="english" id="english" name="languagetype" className="cursor-pointer border-[#cd5700] border-2 p-2 bg-[#fad646] " />
             </div>
             <div className="flex items-center space-x-2">
               <Label htmlFor="gujrati" className="text-amber-600 font-bold">Gujrati</Label>
-              <RadioGroupItem value="gujrati"  id="gujrati" name="languagetype" className="cursor-pointer border-[#cd5700] border-2 p-2 bg-[#fad646]" />
+              <RadioGroupItem value="gujrati" id="gujrati" name="languagetype" className="cursor-pointer border-[#cd5700] border-2 p-2 bg-[#fad646]" />
             </div>
           </RadioGroup>
 
-          <Button onClick={()=>navigate.push(`/exampage?lan=${formik.values.languagetype}`)} className='rounded-0 text-[#cd5700] bg-[#fad646] border-[#cd5700] border-2 hover:bg-[#cd5700] hover:text-[#fad646] hover:border-[#fad646] my-3 cursor-pointer px-4'>Start</Button>
+          <Button onClick={() => navigate.push(`/exampage?lan=${formik.values.languagetype}`)} className='rounded-0 text-[#cd5700] bg-[#fad646] border-[#cd5700] border-2 hover:bg-[#cd5700] hover:text-[#fad646] hover:border-[#fad646] my-3 cursor-pointer px-4'>Start</Button>
         </div>
       </div>
     </div>

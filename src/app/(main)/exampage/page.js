@@ -3,21 +3,25 @@
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { createData, readData } from '@/helper/axios';
 import { setExamResult } from '@/store/examSlice';
 import { useFormik } from 'formik';
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from 'react'
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import * as yup from 'yup';
 function ExamPage() {
     const dispatch = useDispatch();
+    const { user } = useSelector((state) => state.exam);
     const searchparam = useSearchParams()
-    console.log("searchparam", searchparam.get('lan'))
+    const language = searchparam.get('lan')
     const navigate = useRouter();
     const [currentIndex, setCurrentIndex] = useState(0)
     const [skiped, setSkiped] = useState([])
     const [isFinished, setIsFinished] = useState(false);
-    const [timeLeft, setTimeLeft] = useState(20);
+    const [timeLeft, setTimeLeft] = useState(50);
+    // const [timeLeft, setTimeLeft] = useState(5 * 6.0);
+    const [que, setque] = useState([])
     const [initialValues] = useState({
         answer: {},
     })
@@ -38,33 +42,38 @@ function ExamPage() {
         onSubmit: (values) => { Addans(values.answer) }
     });
 
-    const Addans = (ans) => {
+    const Addans = async (ans) => {
+        const anslength = Object.entries(ans).filter(([_, val]) => val !== "")
         isFinished ? null : window.confirm("Are you sure, you want to finish your exam?");
+        console.log("111111")
         const quelen = que.length;
-        let anslen = Object.keys(ans).length
+        let anslen = anslength.length
         dispatch(setExamResult({ quelen, anslen }));
-        navigate.push("/finishpage", { state: { quelen, anslen } });
-    }
-    const que = [
-        {
-            "id": 1,
-            "question": "What is 2 + 2?",
-            "options": ["2", "3", "4", "5"],
-            "answer": "4"
-        },
-        {
-            "id": 2,
-            "question": "What is the capital of India?",
-            "options": ["Delhi", "Mumbai", "Kolkata", "Chennai"],
-            "answer": "Delhi"
-        },
-        {
-            "id": 3,
-            "question": "React is a ___ library?",
-            "options": ["UI", "Database", "Backend", "OS"],
-            "answer": "UI"
+        console.log("AAAAAAAAAAAA")
+        try {
+            console.log("222222")
+            const customArray = Array.from(Object.entries(ans), ([questionId, selectedOptionId]) => ({ questionId, selectedOptionId }));
+            console.log("result111111",user)
+            const data = {
+                userId: user?.id,
+                examId: "1",
+                answer: customArray
+            }
+            console.log("dataa", data)
+            const res = await createData("", "exam/saveanswer", data, {
+                withCredentials: true,
+                header: {
+                    "Content-Type": "application/json",
+                },
+            });
+
+            console.log("ress", res)
+            navigate.push("/finishpage");
+        } catch (error) {
+            console.log("errorr", error)
         }
-    ]
+
+    }
 
     const handleAnswer = (selectans) => {
         formik.setFieldValue("answer", {
@@ -74,33 +83,92 @@ function ExamPage() {
     }
 
 
-    useEffect(() => {
-        if (isFinished) return; // stop timer when finished
-        if (timeLeft <= 0) {
-            setIsFinished(true); // auto finish when time is up
-            return;
+    const Getquestation = async () => {
+        const res = await readData(`/exam/getQuestion?language=${language}&examid=1`, {
+            header: {
+                "Content-Type": "application/json",
+            },
+        });
+        if (res.message === "Questions fetched successfully") {
+            const apiSeconds = parseTimeInput(res.duration);
+            if (apiSeconds > 0) {
+                // setTimeLeft(apiSeconds);
+            }
+            setque(res.data)
         }
+    }
+
+    // Convert API value into seconds
+    const parseTimeInput = (input) => {
+        if (!input) return 0;
+
+        // Case: "2:30"
+        //   if (input.includes(":")) {
+        //     const [h, m] = input.split(":").map(Number);
+        //     return (h * 3600) + (m * 60);
+        //   }
+
+        //   // Case: "2 hour 30 min"
+        //   if (input.toLowerCase().includes("hour") || input.toLowerCase().includes("min")) {
+        //     let hours = 0, minutes = 0;
+        //     const parts = input.toLowerCase().split(" ");
+        //     parts.forEach((p, i) => {
+        //       if (p.includes("hour")) hours = Number(parts[i - 1]) || 0;
+        //       if (p.includes("min")) minutes = Number(parts[i - 1]) || 0;
+        //     });
+        //     return (hours * 3600) + (minutes * 60);
+        //   }
+
+        // Case: only number
+        const num = Number(input);
+        if (num <= 12) {
+            return num * 3600; // assume hours
+        }
+        return num * 60; // assume minutes
+    };
+
+    useEffect(() => {
+        Getquestation()
+    }, [])
+
+    useEffect(() => {
+        if (isFinished) return;
 
         const interval = setInterval(() => {
-            setTimeLeft((prev) => prev - 1);
+            setTimeLeft((prev) => {
+                if (prev <= 1) {
+                    clearInterval(interval);
+                    setIsFinished(true);
+                    return 0;
+                }
+                return prev - 1;
+            });
         }, 1000);
 
         return () => clearInterval(interval); // cleanup
-    }, [timeLeft, isFinished]);
+    }, [isFinished]);
 
-    // Format time (MM:SS)
-    const formatTimeMin = (seconds) => {
-        const min = Math.floor(seconds / 60);
-        const sec = seconds % 60;
-        return `${min.toString().padStart(2, "0")}`;
+    const formatTimehr = (seconds) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return `${h.toString().padStart(2, "0")}`;
     };
-    const formatTimeSec = (seconds) => {
-        const min = Math.floor(seconds / 60);
-        const sec = seconds % 60;
-        return `${sec
+    const formatTimeMin = (seconds) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return `${m
             .toString()
             .padStart(2, "0")}`;
     };
+    const formatTimeSec = (seconds) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return `${s.toString().padStart(2, "0")}`;
+    };
+
     const handleNext = () => {
         const currentQuesId = que[currentIndex].id;
         const currentAns = formik.values.answer?.[currentQuesId];
@@ -149,6 +217,7 @@ function ExamPage() {
             setCurrentIndex((prev) => prev - 1);
         }
     };
+    // console.log("formikkk", formik.values.answer)
     return (
         <>
             <div className='py-4'>
@@ -171,6 +240,11 @@ function ExamPage() {
                         </div>
                         <div className='p-3 bg-[#f5f5f5] gap-2 flex justify-around'>
                             <div className='text-center'>
+                                <p className='grid font-bold'>{formatTimehr(timeLeft)}
+                                    <span>hr</span>
+                                </p>
+                            </div>
+                            <div className='text-center'>
                                 <p className='grid font-bold'>{formatTimeMin(timeLeft)}
                                     <span>Minutes</span>
                                 </p>
@@ -189,18 +263,27 @@ function ExamPage() {
 
                     <div className='py-4 px-5'>
                         <p className='font-bold mb-4'>{que[currentIndex]?.question}</p>
-                        <RadioGroup onValueChange={(val) => handleAnswer(val)}
-                            value={formik.values.answer[que[currentIndex]?.id]} className="px-3">
+
+                        <RadioGroup
+                            onValueChange={(val) => handleAnswer(val)}
+                            value={formik.values.answer[que[currentIndex]?.id]}
+                            className="px-3"
+                        >
                             {que[currentIndex]?.options.map((opt, i) => (
-                                <div className="flex items-center space-x-2 " key={i}>
-                                    <RadioGroupItem value={opt} id={opt} name="answer" className="cursor-pointer border-black" />
-                                    <Label htmlFor="english" >{opt}</Label>
-                                </div>
+                                <>
+                                    <div className="flex items-center space-x-2 " key={i}>
+                                        <RadioGroupItem value={opt.id} id={opt.id} name="answer" className="cursor-pointer border-black" />
+                                        <Label htmlFor="english" >{opt.optionText}</Label>
+                                    </div>
+                                </>
                             ))}
                         </RadioGroup>
 
-                        {formik.errors.answer ? <div className='text-red-600 p-4'>{formik.errors.answer}</div> : null}
+                        {formik.errors.answer ? (
+                            <div className='text-red-600 p-4'>{formik.errors.answer}</div>
+                        ) : null}
                     </div>
+
 
                     <div>
                         <div className='flex justify-center gap-3'>
@@ -210,7 +293,7 @@ function ExamPage() {
                             <Button onClick={() => handleSkip()} className='rounded-0 bg-[#ecba11] text-black my-3 cursor-pointer px-4 hover:bg-[#ecba11]' disabled={currentIndex + 1 === que.length}>Skip</Button>
                         </div>
                         <div className='flex justify-center'>
-                            <Button onClick={formik.handleSubmit} className='rounded-0 w-[150px] bg-red-600 text-white my-3 cursor-pointer px-4 hover:bg-red-600'>Finish</Button>
+                            <Button type="submit" onClick={formik.handleSubmit} className='rounded-0 w-[150px] bg-red-600 text-white my-3 cursor-pointer px-4 hover:bg-red-600'>Finish</Button>
                         </div>
                     </div>
                 </div>
